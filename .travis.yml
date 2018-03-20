@@ -1,0 +1,4 @@
+language: bash
+before_install: ./script/install_bats
+install: ./build
+script: ./build test
