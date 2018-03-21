@@ -4,8 +4,8 @@
 
 set -ex
 
-: ${BATS_VERSION:='0.4.0'}
-: ${BATS_MD5SUM:='aeeddc0b36b8321930bf96fce6ec41ee'}
+: ${BATS_VERSION?}
+: ${BATS_MD5SUM?}
 
 mkdir bats && cd bats
 wget "https://github.com/sstephenson/bats/archive/v${BATS_VERSION}.tar.gz"
