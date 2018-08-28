@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load mock_create_wrapper
+load mock_test_suite
 
 @test 'mock_get_call_num requires mock to be specified' {
   run mock_get_call_num

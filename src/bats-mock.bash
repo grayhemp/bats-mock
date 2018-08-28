@@ -69,11 +69,7 @@ mock_set_status() {
   local status="${2?'Status must be specified'}"
   local n="$3"
 
-  if [[ -n "${n}" ]]; then
-    echo "${status}" > "${mock}.status.${n}"
-  else
-    echo "${status}" > "${mock}.status"
-  fi
+  mock_set_property "${mock}" 'status' "${status}" "${n}"
 }
 
 # Sets the output of the mock
@@ -81,22 +77,12 @@ mock_set_status() {
 #   1: Path to the mock
 #   2: Output or - for STDIN
 #   3: Index of the call, optional
-# Inputs:
-#   STDIN: Output if 2 is -
 mock_set_output() {
   local mock="${1?'Mock must be specified'}"
   local output="${2?'Output must be specified'}"
   local n="$3"
 
-  if [[ "${output}" = '-' ]]; then
-    output="$(cat -)"
-  fi
-
-  if [[ -n "${n}" ]]; then
-    echo -e "${output}" > "${mock}.output.${n}"
-  else
-    echo -e "${output}" > "${mock}.output"
-  fi
+  mock_set_property "${mock}" 'output' "${output}" "${n}"
 }
 
 # Sets the side effect of the mock
@@ -104,22 +90,12 @@ mock_set_output() {
 #   1: Path to the mock
 #   2: Side effect or - for STDIN
 #   3: Index of the call, optional
-# Inputs:
-#   STDIN: Side effect if 2 is -
 mock_set_side_effect() {
   local mock="${1?'Mock must be specified'}"
   local side_effect="${2?'Side effect must be specified'}"
   local n="$3"
 
-  if [[ "${side_effect}" = '-' ]]; then
-    side_effect="$(cat -)"
-  fi
-
-  if [[ -n "${n}" ]]; then
-    echo -e "${side_effect}" > "${mock}.side_effect.${n}"
-  else
-    echo -e "${side_effect}" > "${mock}.side_effect"
-  fi
+  mock_set_property "${mock}" 'side_effect' "${side_effect}" "${n}"
 }
 
 # Returns the number of times the mock was called
@@ -137,27 +113,12 @@ mock_get_call_num() {
 # Arguments:
 #   1: Path to the mock
 #   2: Index of the call, optional
-# Returns:
-#   1: If mock is not called enough times
 # Outputs:
 #   STDOUT: User name
-#   STDERR: Corresponding error message
 mock_get_call_user() {
   local mock="${1?'Mock must be specified'}"
-  local n="$2"
-
-  local call_num
-  call_num="$(cat ${mock}.call_num)"
-
-  local n="${2:-${call_num}}"
-  if [[ "${n}" -eq 0 ]]; then
-    n=1
-  fi
-
-  if [[ "${n}" -gt "${call_num}" ]]; then
-    echo "Mock must be called at least ${n} time(s)" >&2
-    exit 1
-  fi
+  local n
+  n="$(mock_default_n ${mock} $2)" || exit "$?"
 
   echo "$(cat ${mock}.user.${n})"
 }
@@ -166,26 +127,12 @@ mock_get_call_user() {
 # Arguments:
 #   1: Path to the mock
 #   2: Index of the call, optional
-# Returns:
-#   1: If mock is not called enough times
 # Outputs:
 #   STDOUT: Arguments line
-#   STDERR: Corresponding error message
 mock_get_call_args() {
   local mock="${1?'Mock must be specified'}"
-
-  local call_num
-  call_num="$(cat ${mock}.call_num)"
-
-  local n="${2:-${call_num}}"
-  if [[ "${n}" -eq 0 ]]; then
-    n=1
-  fi
-
-  if [[ "${n}" -gt "${call_num}" ]]; then
-    echo "Mock must be called at least ${n} time(s)" >&2
-    exit 1
-  fi
+  local n
+  n="$(mock_default_n ${mock} $2)" || exit "$?"
 
   echo "$(cat ${mock}.args.${n})"
 }
@@ -195,19 +142,58 @@ mock_get_call_args() {
 #   1: Path to the mock
 #   2: Variable name
 #   3: Index of the call, optional
-# Returns:
-#   1: If mock is not called enough times
 # Outputs:
 #   STDOUT: Variable value
-#   STDERR: Corresponding error message
 mock_get_call_env() {
   local mock="${1?'Mock must be specified'}"
   local var="${2?'Variable name must be specified'}"
+  local n="$3"
+  n="$(mock_default_n ${mock} $3)" || exit "$?"
 
+  source "${mock}.env.${n}"
+  echo "${!var}"
+}
+
+# Sets a specific property of the mock
+# Arguments:
+#   1: Path to the mock
+#   2: Property name
+#   3: Property value or - for STDIN
+#   4: Index of the call, optional
+# Inputs:
+#   STDIN: Property value if 2 is -
+mock_set_property() {
+  local mock="${1?'Mock must be specified'}"
+  local property_name="${2?'Property name must be specified'}"
+  local property_value="${3?'Property value must be specified'}"
+  local n="$4"
+
+  if [[ "${property_value}" = '-' ]]; then
+    property_value="$(cat -)"
+  fi
+
+  if [[ -n "${n}" ]]; then
+    echo -e "${property_value}" > "${mock}.${property_name}.${n}"
+  else
+    echo -e "${property_value}" > "${mock}.${property_name}"
+  fi
+}
+
+# Defaults call index to the last one if not specified explicitly
+# Arguments:
+#   1: Path to the mock
+#   2: Index of the call, optional
+# Returns:
+#   1: If mock is not called enough times
+# Outputs:
+#   STDOUT: Call index
+#   STDERR: Corresponding error message
+mock_default_n() {
+  local mock="${1?'Mock must be specified'}"
   local call_num
   call_num="$(cat ${mock}.call_num)"
+  local n="${2:-${call_num}}"
 
-  local n="${3:-${call_num}}"
   if [[ "${n}" -eq 0 ]]; then
     n=1
   fi
@@ -217,7 +203,5 @@ mock_get_call_env() {
     exit 1
   fi
 
-  source "${mock}.env.${n}"
-
-  echo "${!var}"
+  echo "${n}"
 }

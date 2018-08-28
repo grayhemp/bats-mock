@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load mock_create_wrapper
+load mock_test_suite
 
 @test 'mock_get_call_env requires mock to be specified' {
   run mock_get_call_env
@@ -16,6 +16,7 @@ load mock_create_wrapper
 
 @test 'mock_get_call_env requires the mock to be called' {
   run mock_get_call_env "${mock}" 'VAR'
+  echo "${output}" >&2
   [[ "${status}" -eq 1 ]]
   [[ "${output}" =~ 'Mock must be called at least 1 time(s)' ]]
 }
