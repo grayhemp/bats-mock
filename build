@@ -9,7 +9,7 @@ set -e -o pipefail
 : ${BINDIR:="${PREFIX}/bin"}
 
 build_install() {
-  install src/bats-mock.bash "${LIBDIR}"
+  install -v src/bats-mock.bash "${LIBDIR}"
 }
 
 build_test() {
