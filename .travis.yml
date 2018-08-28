@@ -1,6 +1,7 @@
 language: bash
-sudo: required
 before_install:
-  - sudo ./script/install_bats.sh
+  - PREFIX="${HOME}/.local" ./script/install_bats
+install:
+  - PREFIX="${HOME}/.local" ./build install
 script:
-  - ./build.sh test
+  - ./build test
