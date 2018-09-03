@@ -199,7 +199,7 @@ mock_default_n() {
   fi
 
   if [[ "${n}" -gt "${call_num}" ]]; then
-    echo "Mock must be called at least ${n} time(s)" >&2
+    echo "$(basename $0): Mock must be called at least ${n} time(s)" >&2
     exit 1
   fi
 
