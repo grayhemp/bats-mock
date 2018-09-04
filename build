@@ -29,7 +29,7 @@ main() {
     exit 1
   fi
 
-  "build_$1" "${@:2}"
+  "build_ERROR_$1" "${@:2}"
 }
 
 main "$@"
