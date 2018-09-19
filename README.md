@@ -9,8 +9,10 @@ load bats-mock
 
 @test "postgres.sh starts Postgres" {
   mock="$(mock_create)"
-  mock_set_side_effect "${mock}" 'touch /tmp/postgres_started'
+  mock_set_side_effect "${mock}" "echo $$ > /tmp/postgres_started"
 
+  # Assuming postgres.sh expects the `_POSTGRES` variable to define a
+  # path to the `postgres` executable
   _POSTGRES="${mock}" run postgres.sh
 
   [[ "${status}" -eq 0 ]]
@@ -18,6 +20,7 @@ load bats-mock
   [[ "$(mock_get_call_user ${mock})" = 'postgres' ]]
   [[ "$(mock_get_call_args ${mock})" =~ -D\ /var/lib/postgresql ]]
   [[ "$(mock_get_call_env ${mock} PGPORT)" -eq 5432 ]]
+  [[ "$(cat /tmp/postgres_started)" -eq "$$" ]]
 }
 ```
 
