@@ -24,16 +24,6 @@ load bats-mock
 }
 ```
 
-## Testing
-
-```bash
-./build test
-```
-
-Requires [Bats][bats-core] to be installed and in `PATH`.
-
-Optionally accepts the `BINDIR` env.
-
 ## Installation
 
 ```bash
@@ -143,6 +133,16 @@ Returns the value of the environment variable the mock was called with
 the `n`-th time. If no `n` is specified then assuming the last call.
 
 It requires the mock to be called at least once.
+
+## Testing
+
+```bash
+./build test
+```
+
+Requires [Bats][bats-core] to be installed and in `PATH`.
+
+Optionally accepts the `BINDIR` env.
 
 <!-- Links -->
 
