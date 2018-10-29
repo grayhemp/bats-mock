@@ -8,33 +8,29 @@ set -e -o pipefail
 : ${LIBDIR:="${PREFIX}/lib"}
 : ${BINDIR:="${PREFIX}/bin"}
 
-build_install() {
-  install -v src/bats-mock.bash "${LIBDIR}"
-}
-
-build_test() {
-  if [[ "${BINDIR:0:1}" != '/' ]]; then
-    echo "$(basename $0): BINDIR must be an absolute path" >&2
-    exit 1
-  fi
-
-  PATH="${PATH}:${BINDIR}" bats -t test/$([[ -n "$1" ]] && echo "$1.bats")
-}
-
-main() {
-  : ${1?'Command must be specified'}
-
-  if [[ "${PREFIX:0:1}" != '/' ]]; then
-    echo "$(basename $0): PREFIX must be an absolute path" >&2
-    exit 1
-  fi
-
+command_install() {
   if [[ "${LIBDIR:0:1}" != '/' ]]; then
     echo "$(basename $0): LIBDIR must be an absolute path" >&2
     exit 1
   fi
+  install -v src/bats-mock.bash "${LIBDIR}"
+}
 
-  "build_$1" "${@:2}"
+command_test() {
+  if [[ "${BINDIR:0:1}" != '/' ]]; then
+    echo "$(basename $0): BINDIR must be an absolute path" >&2
+    exit 1
+  fi
+  PATH="${PATH}:${BINDIR}"
+  bats -t test/$([[ -n "$1" ]] && echo "$1.bats")
+}
+
+main() {
+  if [[ "${PREFIX:0:1}" != '/' ]]; then
+    echo "$(basename $0): PREFIX must be an absolute path" >&2
+    exit 1
+  fi
+  "command_${1?'Command must be specified'}" "${@:2}"
 }
 
 main "$@"
