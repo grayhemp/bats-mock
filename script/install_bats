@@ -4,8 +4,8 @@
 
 set -e -o pipefail
 
-: ${BATS_VERSION:='1.0.2'}
-: ${BATS_SHA1SUM:='62090dd5070f0346cf1cedf06ec277f42b35e292'}
+: ${BATS_VERSION:='1.2.1'}
+: ${BATS_SHA1SUM:='418ca60af55c339ac7911c74a44f7edf41e3a17c'}
 : ${PREFIX:=/usr/local}
 : ${SRCDIR:="${PREFIX}/src"}
 
