@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+set -euo pipefail
+
 load ../src/bats-mock
 
 teardown() {
