@@ -63,7 +63,7 @@ used to mimic complex status sequences.
 ### `mock_set_output`
 
 ```bash
-mock_set_return_value <mock> (<output>|-) [<n>]
+mock_set_output <mock> (<output>|-) [<n>]
 ```
 
 Sets the output of the mock.
