@@ -56,3 +56,11 @@ load mock_test_suite
   [[ "${status}" -eq 0 ]]
   [[ "${output}" = 'six' ]]
 }
+
+@test 'mock_get_call_args with echo arguments work' {
+  "${mock}" -n -e "echo params"
+
+  run mock_get_call_args "${mock}"
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" = '-n -e echo params']]
+}
