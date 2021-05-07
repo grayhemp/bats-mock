@@ -31,7 +31,7 @@ echo "\${call_num}" > "\${mock}.call_num"
 
 echo "\${_USER:-\$(id -un)}" > "\${mock}.user.\${call_num}"
 
-echo "\$@" > "\${mock}.args.\${call_num}"
+printf "%s" "\$*" > "\${mock}.args.\${call_num}"
 
 for var in \$(compgen -e); do
   declare -p "\${var}"
