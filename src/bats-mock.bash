@@ -10,7 +10,7 @@
 mock_create() {
   local index
   index="$(find "${BATS_TMPDIR}" -name "bats-mock.$$.*" 2>&1 | \
-           grep -v 'Permission denied' | wc -l | tr -d ' ')"
+           grep -c -v 'Permission denied' | tr -d ' ')"
   local mock
   mock="${BATS_TMPDIR}/bats-mock.$$.${index}"
 
