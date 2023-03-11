@@ -9,7 +9,7 @@
 #   STDOUT: Path to the mock
 mock_create() {
   local index
-  index="$(find ${BATS_TMPDIR} -name bats-mock.$$.* 2>&1 | \
+  index="$(find "${BATS_TMPDIR}" -name "bats-mock.$$.*" 2>&1 | \
            grep -v 'Permission denied' | wc -l | tr -d ' ')"
   local mock
   mock="${BATS_TMPDIR}/bats-mock.$$.${index}"
@@ -107,7 +107,7 @@ mock_set_side_effect() {
 mock_get_call_num() {
   local mock="${1?'Mock must be specified'}"
 
-  echo "$(cat ${mock}.call_num)"
+  echo "$(cat "${mock}.call_num")"
 }
 
 # Returns the user the mock was called with
@@ -119,9 +119,9 @@ mock_get_call_num() {
 mock_get_call_user() {
   local mock="${1?'Mock must be specified'}"
   local n
-  n="$(mock_default_n ${mock} ${2-})" || exit "$?"
+  n="$(mock_default_n "${mock}" "${2-}")" || exit "$?"
 
-  echo "$(cat ${mock}.user.${n})"
+  echo "$(cat "${mock}.user.${n}")"
 }
 
 # Returns the arguments line the mock was called with
@@ -133,9 +133,9 @@ mock_get_call_user() {
 mock_get_call_args() {
   local mock="${1?'Mock must be specified'}"
   local n
-  n="$(mock_default_n ${mock} ${2-})" || exit "$?"
+  n="$(mock_default_n "${mock}" "${2-}")" || exit "$?"
 
-  echo "$(cat ${mock}.args.${n})"
+  echo "$(cat "${mock}.args.${n}")"
 }
 
 # Returns the value of the environment variable the mock was called with
@@ -149,7 +149,7 @@ mock_get_call_env() {
   local mock="${1?'Mock must be specified'}"
   local var="${2?'Variable name must be specified'}"
   local n
-  n="$(mock_default_n ${mock} ${3-})" || exit "$?"
+  n="$(mock_default_n "${mock}" "${3-}")" || exit "$?"
 
   source "${mock}.env.${n}"
   echo "${!var-}"
@@ -192,7 +192,7 @@ mock_set_property() {
 mock_default_n() {
   local mock="${1?'Mock must be specified'}"
   local call_num
-  call_num="$(cat ${mock}.call_num)"
+  call_num="$(cat "${mock}.call_num")"
   local n="${2:-${call_num}}"
 
   if [[ "${n}" -eq 0 ]]; then
@@ -200,7 +200,7 @@ mock_default_n() {
   fi
 
   if [[ "${n}" -gt "${call_num}" ]]; then
-    echo "$(basename $0): Mock must be called at least ${n} time(s)" >&2
+    echo "$(basename "$0"): Mock must be called at least ${n} time(s)" >&2
     exit 1
   fi
 
