@@ -21,8 +21,7 @@ load mock_test_suite
 
 @test 'mock_set_status sets a status' {
   mock_set_status "${mock}" 127
-  run "${mock}"
-  [[ "${status}" -eq 127 ]]
+  run -127 "${mock}"
 }
 
 @test 'mock_set_status sets an n-th status' {
@@ -30,8 +29,7 @@ load mock_test_suite
   mock_set_status "${mock}" 255 4
   run "${mock}"
   [[ "${status}" -eq 0 ]]
-  run "${mock}"
-  [[ "${status}" -eq 127 ]]
+  run -127 "${mock}"
   run "${mock}"
   [[ "${status}" -eq 0 ]]
   run "${mock}"
