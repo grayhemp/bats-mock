@@ -10,7 +10,9 @@ load mock_test_suite
 
 @test 'mock_get_call_args requires the mock to be called' {
   run mock_get_call_args "${mock}"
+  echo "status: $status"
   [[ "${status}" -eq 1 ]]
+  echo "output: $output"
   [[ "${output}" =~ 'Mock must be called at least 1 time(s)' ]]
 }
 
@@ -55,4 +57,12 @@ load mock_test_suite
   run mock_get_call_args "${mock}" 4
   [[ "${status}" -eq 0 ]]
   [[ "${output}" = 'six' ]]
+}
+
+@test 'mock_get_call_args with mocked command' {
+  "${cmd}" one
+  "${cmd}" two
+  run mock_get_call_args "${cmd}"
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" = 'two' ]]
 }

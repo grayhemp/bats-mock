@@ -5,14 +5,26 @@
 # Creates a mock program
 # Globals:
 #   BATS_TMPDIR
+# Arguments:
+#   1: Command to mock, optional
+# Returns:
+#   1: If the mock command already exists
+#   1: If the command provided with an absoluth path already exists
 # Outputs:
 #   STDOUT: Path to the mock
+#   STDERR: Corresponding error message
 mock_create() {
+  local cmd="${1-}"
   local index
   index="$(find "${BATS_TMPDIR}" -name "bats-mock.$$.*" 2>&1 | \
            grep -c "${BATS_TMPDIR}/bats-mock\.$$\." | tr -d ' ')"
   local mock
   mock="${BATS_TMPDIR}/bats-mock.$$.${index}"
+
+  # Don't create the mock if the command already exits
+  if [[ -n "${cmd}" ]]; then
+    cmd=$(mock_set_command "${mock}" "${cmd}") || exit $?
+  fi
 
   echo -n 0 > "${mock}.call_num"
   echo -n 0 > "${mock}.status"
@@ -57,7 +69,38 @@ fi
 EOF
   chmod +x "${mock}"
 
-  echo "${mock}"
+  if [[ -n "${cmd}" ]]; then
+    echo "${cmd}"
+  else
+    echo "${mock}"
+  fi
+}
+
+# Creates a symbolic link with given name to a mock program
+# Globals:
+#   BATS_TMPDIR
+# Arguments:
+#   1: Path to the mock
+#   2: Command name
+# Outputs:
+#   STDOUT: Path to the mocked command
+mock_set_command() {
+  local mock="${1?'Mocked command must be specified'}"
+  local cmd="${2?'Command must be specified'}"
+
+  # Parameter expansion to get the folder portion of the mock's path
+  local mock_path="${mock%/*}/bats-mock.$$.bin"
+
+  if [[ "${cmd}" = /* ]]; then
+    # Parameter expansion to get the folder portion of the command's path
+    mock_path="${cmd%/*}"
+  else
+    cmd="${mock_path}/${cmd}"
+  fi
+
+  # Create command stub by linking it to the mock
+  mkdir -p "${mock_path}"
+  ln -s "${mock}" "${cmd}" && echo "${cmd}"
 }
 
 # Sets the exit status of the mock
@@ -106,6 +149,8 @@ mock_set_side_effect() {
 #   STDOUT: Number of calls
 mock_get_call_num() {
   local mock="${1?'Mock must be specified'}"
+  # Make sure to resolve links in case we received a mock command
+  mock=$(readlink -f "${mock}")
 
   cat "${mock}.call_num"
 }
@@ -118,6 +163,9 @@ mock_get_call_num() {
 #   STDOUT: User name
 mock_get_call_user() {
   local mock="${1?'Mock must be specified'}"
+  # Make sure to resolve links in case we received a mock command
+  mock=$(readlink -f "${mock}")
+
   local n
   n="$(mock_default_n "${mock}" "${2-}")" || exit "$?"
 
@@ -132,6 +180,9 @@ mock_get_call_user() {
 #   STDOUT: Arguments line
 mock_get_call_args() {
   local mock="${1?'Mock must be specified'}"
+  # Make sure to resolve links in case we received a mock command
+  mock=$(readlink -f "${mock}")
+
   local n
   n="$(mock_default_n "${mock}" "${2-}")" || exit "$?"
 
@@ -148,6 +199,9 @@ mock_get_call_args() {
 mock_get_call_env() {
   local mock="${1?'Mock must be specified'}"
   local var="${2?'Variable name must be specified'}"
+  # Make sure to resolve links in case we received a mock command
+  mock=$(readlink -f "${mock}")
+
   local n
   n="$(mock_default_n "${mock}" "${3-}")" || exit "$?"
 
@@ -172,6 +226,9 @@ mock_set_property() {
   if [[ "${property_value}" = '-' ]]; then
     property_value="$(cat -)"
   fi
+
+  # Make sure to resolve links in case we received a mock command
+  mock=$(readlink -f "${mock}")
 
   if [[ -n "${n}" ]]; then
     echo -e "${property_value}" > "${mock}.${property_name}.${n}"

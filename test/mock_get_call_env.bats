@@ -81,3 +81,12 @@ load mock_test_suite
   [[ "${status}" -eq 0 ]]
   [[ -z "${output}" ]]
 }
+
+@test 'mock_get_call_env with mocked command' {
+  VAR='value 1' "${cmd}"
+  VAR='value 2' "${cmd}"
+  run mock_get_call_env "${cmd}" 'VAR'
+  echo "${output}" >&2
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" = 'value 2' ]]
+}

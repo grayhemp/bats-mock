@@ -21,3 +21,10 @@ load mock_test_suite
   [[ "${status}" -eq 0 ]]
   [[ "${output}" -eq 2 ]]
 }
+
+@test 'mock_get_call_num with mocked command' {
+  "${cmd}"
+  run mock_get_call_num "${cmd}"
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" -eq 1 ]]
+}

@@ -24,6 +24,25 @@ load bats-mock
 }
 ```
 
+Mock calls to commands by overriding the `PATH` variable.
+
+```bash
+load bats-mock
+
+@test "download with wget" {
+  # Mock wget to avoid downloading the file
+  mock_wget="$(mock_create wget)"
+
+  # Execute the shell script under test.
+  # Make sure the path to the mock precedes system provided commands.
+  PATH="$(dirname "${mock_wget}"):$PATH" run install-fancy-app.sh
+
+  [[ "${status}" -eq 0 ]]
+  [[ "$(mock_get_call_num ${mock_wget})" -eq 1 ]]
+  [[ "$(mock_get_call_args ${mock_wget})" =~ "-O fancy-app https://example.org/fancy-app" ]]
+}
+```
+
 ## Installation
 
 ```bash
@@ -37,14 +56,22 @@ Optionally accepts `PREFIX` and `LIBDIR` envs.
 ### `mock_create`
 
 ```bash
-mock_create
+mock_create [<command>]
 ```
 
-Creates a mock program with a unique name in `BATS_TMPDIR` and outputs
-its path.
+Creates a mock program with a unique name in `BATS_TMPDIR` and outputs its path.
+If `command` is provided a symbolic link with the given name is created and
+returned.
 
-The mock tracks calls and collects their properties. The collected
-data is accessible using methods described below.
+The mock tracks calls and collects their properties. The collected data is
+accessible using methods described below.
+
+> **NOTE**  
+> `mock_create command` with overriding the `PATH` variable may be used to supply
+> custom executables for your tests.
+>
+> It is self-explanatory that this approach doesn't work for shell scripts with
+> commands having hard-coded absolute paths.
 
 ### `mock_set_status`
 
@@ -73,8 +100,7 @@ The mock outputs nothing by default.
 If the output is specified as `-` then it is going to be read from
 `STDIN`.
 
-The optional `n` argument behaves similarly to the one of
-`mock_set_exit_code`.
+The optional `n` argument behaves similarly to the one of `mock_set_status`.
 
 ### `mock_set_side_effect`
 
@@ -90,8 +116,7 @@ No side effect is set by default.
 If the side effect is specified as `-` then it is going to be read
 from `STDIN`.
 
-The optional `n` argument behaves similarly to the one of
-`mock_set_exit_code`.
+The optional `n` argument behaves similarly to the one of `mock_set_status`.
 
 ### `mock_get_call_num`
 
@@ -133,6 +158,7 @@ Returns the value of the environment variable the mock was called with
 the `n`-th time. If no `n` is specified then assuming the last call.
 
 It requires the mock to be called at least once.
+
 
 ## Testing
 
