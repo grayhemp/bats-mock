@@ -99,7 +99,7 @@ accessible using methods described below.
 ### `path_override`
 
 ```bash
-path_override <mock> [path]
+path_override <mock | command | path_to_add> [path]
 ```
 
 Outputs `$PATH` prefixed with the mocked command's directory. If the directory
@@ -108,6 +108,17 @@ is already part of `$PATH` nothing is done.
 Works regardless if the provided mock is a file, link or a directory.
 
 Use `path` instead of `$PATH` if specified.
+
+### `path_rm`
+
+```bash
+path_rm <command | path_to_remove> [path]
+```
+
+Outputs `$PATH` where the directory of the given command or path is removed.
+
+Use `path` instead of `$PATH` if specified.
+
 
 ### `mock_set_status`
 

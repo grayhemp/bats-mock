@@ -298,6 +298,10 @@ path_override() {
 path_rm() {
   local path_to_remove=${1?'Path or command to remove must be specified'}
   local path=${2:-${PATH}}
+  if [[ -f "${path_to_remove}" ]]; then
+      # Parameter expansion to get the folder portion of the temp mock's path
+      path_to_remove=${path_to_remove%/*}
+  fi
   path=":$path:"
   path=${path//":"/"::"}
   path=${path//":${path_to_remove}:"/}
