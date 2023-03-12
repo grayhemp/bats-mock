@@ -289,7 +289,7 @@ path_override() {
   fi
 }
 
-# Returns a path without a given path
+# Returns $PATH without a provided path
 # Arguments:
 #   1: Path to be removed
 #   2: Path from which the 1st argument is removed. Defaults to $PATH if not provided.
@@ -307,23 +307,37 @@ path_rm() {
   echo "${path}"
 }
 
+# Returns a path to directory populated with symolic links to basic commands
+# Globals:
+#   BATS_TMPDIR
+# Arguments:
+#   1: List of commands to be added to the directory, optional
+# Returns:
+#   1: If one of the commands provided in the argument can't be found
+# Outputs:
+#   STDOUT: Path to the directory
+#   STDERR: Corresponding error message
 mock_chroot() {
   local commands=( "$@" )
   local chroot_path="${BATS_TMPDIR}/bats-mock.$$.bin"
-  mkdir -p "${chroot_path}"
+  local customized_chroot=true
+
+  # Use absoluth paths for mkdir and ln, since '/bin' may be not in $PATH anymore.
+  command -p mkdir -p "${chroot_path}"
   if [[ ${#commands[@]} -eq 0 ]]; then
+    customized_chroot=false
     commands=( awk basename bash cat chmod chown cp cut date env \
                dirname getopt grep head id find hostname ln ls mkdir \
                mktemp mv pidof readlink rm rmdir sed sh sleep sort \
-               split tail tee tempfile touch tty uname uniq unlink \
+               split tail tee tempfile touch tr tty uname uniq unlink \
                wc which xargs )
   fi
   for c in "${commands[@]}";
   do
-    if target=$(command -v "$c" 2>&1); then
-      ln -sf "${target}" "${chroot_path}/${c}"
-    else
+    if ! target=$(command -v "$c" 2>&1) && ${customized_chroot}; then
       echo "$c: command not found" && exit 1
+    elif ! error_msg=$(command -p ln -s "${target}" "${chroot_path}/${c}" 2>&1) && ${customized_chroot}; then
+      echo "${error_msg}" && exit 1
     fi
   done
   echo "${chroot_path}"

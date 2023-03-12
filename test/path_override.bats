@@ -1,7 +1,5 @@
 #!/usr/bin/env bats
 
-set -euo pipefail
-
 load mock_test_suite
 
 @test 'path_override requires mock to be specified' {
