@@ -33,13 +33,13 @@ load bats-mock
   # Mock wget to avoid downloading the file
   mock_wget="$(mock_create wget)"
 
-  # Execute the shell script under test.
+  # Execute the shell script under test
   # Make sure the path to the mock precedes system provided commands.
-  PATH="$(dirname "${mock_wget}"):$PATH" run install-fancy-app.sh
+  PATH=$(path_override "${mock_wget}") run install-fancy-app.sh
 
   [[ "${status}" -eq 0 ]]
   [[ "$(mock_get_call_num ${mock_wget})" -eq 1 ]]
-  [[ "$(mock_get_call_args ${mock_wget})" =~ "-O fancy-app https://example.org/fancy-app" ]]
+  [[ "$(mock_get_call_args "${mock_wget}")" =~ "-O fancy-app https://example.org/fancy-app.js" ]]
 }
 ```
 
@@ -60,18 +60,29 @@ mock_create [<command>]
 ```
 
 Creates a mock program with a unique name in `BATS_TMPDIR` and outputs its path.
-If `command` is provided a symbolic link with the given name is created and
-returned.
+If `command` is provided a symbolic link with the given name is created and returned.
 
 The mock tracks calls and collects their properties. The collected data is
 accessible using methods described below.
 
 > **NOTE**  
-> `mock_create command` with overriding the `PATH` variable may be used to supply
-> custom executables for your tests.
+> `mock_command` and `path_override` may be used to supply custom executables for your tests.
 >
 > It is self-explanatory that this approach doesn't work for shell scripts with
 > commands having hard-coded absolute paths.
+
+### `path_override`
+
+```bash
+path_override <mock> [path]
+```
+
+Outputs `$PATH` prefixed with the mocked command's directory. If the directory
+is already part of `$PATH` nothing is done.
+
+Works regardless if the provided mock is a file, link or a directory.
+
+Use `path` instead of `$PATH` if specified.
 
 ### `mock_set_status`
 
@@ -158,7 +169,6 @@ Returns the value of the environment variable the mock was called with
 the `n`-th time. If no `n` is specified then assuming the last call.
 
 It requires the mock to be called at least once.
-
 
 ## Testing
 

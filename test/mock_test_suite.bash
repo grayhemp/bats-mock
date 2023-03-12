@@ -12,6 +12,6 @@ setup() {
 
 teardown() {
   rm "${mock}"*
-  rm "$(readlink -f ${cmd})"*
+  rm "$(readlink -f "${cmd}")"*
   rm "${cmd}"*
 }

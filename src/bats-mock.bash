@@ -263,3 +263,68 @@ mock_default_n() {
 
   echo "${n}"
 }
+
+# Returns a path prefixed with the mock's directory
+# Arguments:
+#   1: Path to the mock which may be a file, directory or link
+#   2: Path to be prefixed by the path from the 1st argument. Defaults to $PATH if not provided.
+# Outputs:
+#   STDOUT: the path prefixed with the mock's directory
+path_override() {
+  local mock="${1?'Mock must be specified'}"
+  local path=${2:-${PATH}}
+  local mock_path="${mock}"
+
+  if [[ -f "${mock}" ]]; then
+    # Parameter expansion to get the folder portion of the mock's path
+    local mock_path="${mock%/*}"
+  fi
+
+  # Putting the directory with the mocked comands at the beginning of the PATH
+  # so it gets picked up first
+  if [[ :${path}: == *:${mock_path}:* ]]; then
+      echo "${path}"
+  else
+      echo "${mock_path}:${path}"
+  fi
+}
+
+# Returns a path without a given path
+# Arguments:
+#   1: Path to be removed
+#   2: Path from which the 1st argument is removed. Defaults to $PATH if not provided.
+# Outputs:
+#   STDOUT: a path without the path provided in ${1}
+path_rm() {
+  local path_to_remove=${1?'Path or command to remove must be specified'}
+  local path=${2:-${PATH}}
+  path=":$path:"
+  path=${path//":"/"::"}
+  path=${path//":${path_to_remove}:"/}
+  path=${path//"::"/":"}
+  path=${path#:}
+  path=${path%:}
+  echo "${path}"
+}
+
+mock_chroot() {
+  local commands=( "$@" )
+  local chroot_path="${BATS_TMPDIR}/bats-mock.$$.bin"
+  mkdir -p "${chroot_path}"
+  if [[ ${#commands[@]} -eq 0 ]]; then
+    commands=( awk basename bash cat chmod chown cp cut date env \
+               dirname getopt grep head id find hostname ln ls mkdir \
+               mktemp mv pidof readlink rm rmdir sed sh sleep sort \
+               split tail tee tempfile touch tty uname uniq unlink \
+               wc which xargs )
+  fi
+  for c in "${commands[@]}";
+  do
+    if target=$(command -v "$c" 2>&1); then
+      ln -sf "${target}" "${chroot_path}/${c}"
+    else
+      echo "$c: command not found" && exit 1
+    fi
+  done
+  echo "${chroot_path}"
+}
