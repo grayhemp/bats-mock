@@ -113,6 +113,11 @@ The links is created in the same directory as the one created by `mock_chroot`.
 > It is self-explanatory that this approach doesn't work for shell scripts with
 > commands having hard-coded absolute paths.
 
+### `mock_teardown`
+
+Convenience function for test teardown. Deletes all objects created by
+`mock_create` and `mock_chroot`.
+
 ### `mock_set_status`
 
 ```bash

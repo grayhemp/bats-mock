@@ -76,6 +76,13 @@ EOF
   fi
 }
 
+# Performs cleanup of mock objects
+# Globals:
+#   BATS_TMPDIR
+mock_teardown() {
+    rm -rf "${BATS_TMPDIR}"/bats-mock.$$.*
+}
+
 # Creates a symbolic link with given name to a mock program
 # Globals:
 #   BATS_TMPDIR
