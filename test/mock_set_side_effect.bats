@@ -51,3 +51,9 @@ load mock_test_suite
   run "${mock}"
   [[ -e "${mock}.side_effect_5" && -e "${mock}.side_effect_6" ]]
 }
+
+@test 'mock_set_side_effect with mocked command' {
+  mock_set_side_effect "${cmd}" "touch ${cmd}.side_effect_1"
+  run "${cmd}"
+  [[ -e "${cmd}.side_effect_1" ]]
+}

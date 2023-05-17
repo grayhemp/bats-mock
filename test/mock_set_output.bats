@@ -58,3 +58,9 @@ load mock_test_suite
   run "${mock}"
   [[ -z "${output}" ]]
 }
+
+@test 'mock_set_output with mocked command' {
+  mock_set_output "${cmd}" 'output 1'
+  run "${cmd}"
+  [[ "${output}" = 'output 1' ]]
+}

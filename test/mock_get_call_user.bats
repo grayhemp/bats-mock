@@ -56,3 +56,10 @@ load mock_test_suite
   [[ "${status}" -eq 0 ]]
   [[ "${output}" = 'dan' ]]
 }
+
+@test 'mock_get_call_user with mocked command' {
+  _USER='alice' "${cmd}"
+  run mock_get_call_user "${cmd}"
+  [[ "${status}" -eq 0 ]]
+  [[ "${output}" = 'alice' ]]
+}
