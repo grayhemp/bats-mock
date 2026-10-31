@@ -39,6 +39,7 @@ The community looks forward to your contributions. 🎉
   - [Coding conventions](#coding-conventions)
   - [Commit messages](#commit-messages)
 - [Release management](#release-management)
+  - [Release bats-mock](#release-bats-mock)
   - [Release a devcontainer image](#release-a-devcontainer-image)
 
 ## Code of conduct
@@ -440,6 +441,60 @@ Rules for creating a great commit message:
     as well as guidance to understand the changes more quickly.
 
 ## Release management
+
+### Release bats-mock
+
+Releases have three phases.
+The release pull request is prepared manually,
+the draft is staged automatically after the pull request is merged,
+and publishing remains a manual step.
+
+The following steps show the release process using [Jujutsu](https://docs.jj-vcs.dev/latest/).
+
+1. **Prepare a release pull request manually.**
+
+   ```bash
+   # We release the main branch
+   jj new -r main@origin
+
+   # Retrieve the bumped version for unreleased changes
+   export RELEASE_VERSION=$(git cliff --bumped-version)
+   echo $RELEASE_VERSION
+
+   # The commit message has to start with an uppercase letter
+   jj describe -m "chore: Release $RELEASE_VERSION"
+
+   # Create a new revision, so git-cliff picks up the release changes
+   jj new
+   ./build changelog
+   jj squash
+
+   # Verify if everything is OK, and create the release PR
+   ./build check
+   jj bookmark create "release/$RELEASE_VERSION" -r @-
+   jj git push --bookmark "release/$RELEASE_VERSION"
+   ```
+
+   Open a pull request from `release/$RELEASE_VERSION` to `main`.
+   Do not create or push the release tag before merging.
+   The pull request check skips only the not-yet-created tag comparison link;
+   all other links are still checked.
+
+2. **Stage the draft automatically after merge.**
+   The `Stage Release` workflow creates the version tag at the merge commit,
+   runs the full check with the tag available,
+   downloads the tag's source archives,
+   creates and verifies a SHA-256 checksum manifest,
+   and attaches the manifest to a GitHub draft release.
+   GitHub provides the source archives for the tag;
+   the workflow uploads the checksum manifest.
+
+3. **Review and publish manually.**
+   Check the draft's notes, tag, and checksum manifest
+   on the [GitHub releases page](https://github.com/mh182/bats-mock/releases).
+   After verifying everything, publish the draft manually.
+   Published releases are immutable,
+   so verify all release details and assets before publishing.
 
 ### Release a devcontainer image
 

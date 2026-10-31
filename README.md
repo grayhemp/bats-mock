@@ -1,5 +1,6 @@
 # bats-mock
 
+![Github Release](https://img.shields.io/github/v/release/mh182/bats-mock)
 [![Tests](https://github.com/mh182/bats-mock/actions/workflows/tests.yml/badge.svg)](https://github.com/mh182/bats-mock/actions/workflows/tests.yml)
 [![GitHub Actions Security Analysis with zizmor](https://github.com/mh182/bats-mock/actions/workflows/zizmor.yml/badge.svg)](https://github.com/mh182/bats-mock/actions/workflows/zizmor.yml)
 

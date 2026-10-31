@@ -61,11 +61,19 @@ jobs:
       - name: 🔍 Run formal checks
         run: |
           echo "Running ./build check ..."
+          release_version=""
+          release_subject_pattern='^chore: Release (v[0-9]+\.[0-9]+\.[0-9]+)([[:space:]]|$)'
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${GITHUB_HEAD_REF:-}" == release/* ]]; then
+            release_version="${GITHUB_HEAD_REF#release/}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_EVENT_HEAD_COMMIT_MESSAGE:-}" =~ ${release_subject_pattern} ]]; then
+            release_version="${BASH_REMATCH[1]}"
+          fi
           # Use -e GIT_CONFIG_* to set safe.directory config without modifying host git config,
           # allowing the build script to run git commands in the mounted volume without safe.directory errors.
           docker run --rm \
             -v "$PWD:/code" \
             -w /code \
+            -e "RELEASE_VERSION=${release_version}" \
             -e GIT_CONFIG_COUNT=1 \
             -e GIT_CONFIG_KEY_0=safe.directory \
             -e GIT_CONFIG_VALUE_0=/code \
@@ -74,6 +82,7 @@ jobs:
             ./build check
         env:
           STEPS_IMAGE_VERSION_OUTPUTS_IMAGE_REF: ${{ steps.image-version.outputs.image_ref }}
+          GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Comment broken links in documentation
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0    # v3.0.4

@@ -24,6 +24,9 @@ usage() {
   echo "" >&2
   echo "Available commands:" >&2
   echo "  check      Run style and static analysis checks" >&2
+  echo "    --style-only     Skip ShellCheck and changelog freshness checks" >&2
+  echo "    --analysis-only  Skip shfmt and rumdl checks" >&2
+  echo "    --skip-link      Skip Lychee documentation link checks" >&2
   echo "  changelog  Regenerate CHANGELOG.md with git-cliff" >&2
   echo "  image      Build the development container image (options: -t imageName)" >&2
   echo "  install    Install bats-mock to the system" >&2
@@ -37,11 +40,13 @@ command_check() {
   local skip_link_check=false
   local status=0
 
+  validate_release_version || return $?
+
   # Parse options
   while [[ $# -gt 0 ]]; do
     case "$1" in
     --style-only) do_static_analysis=false ;;
-    --analyis-only) do_style_check=false ;;
+    --analysis-only | --analyis-only) do_style_check=false ;;
     --skip-link) skip_link_check=true ;;
     -*)
       echo "Unknown option: $1" >&2
@@ -65,6 +70,14 @@ command_check() {
 
   if "${skip_link_check}"; then
     echo "Skip checking links in documentation."
+  elif [[ -n "${RELEASE_VERSION:-}" ]] &&
+    ! git rev-parse --quiet --verify "refs/tags/${RELEASE_VERSION}" >/dev/null; then
+    local escaped_release_version="${RELEASE_VERSION//./\\.}"
+    run_check_tool lychee \
+      --format markdown \
+      --output .lychee-out.md \
+      --exclude "^https://github\.com/mh182/bats-mock/compare/[^[:space:]]*\.\.${escaped_release_version}$" \
+      --cache . || status=$?
   else
     run_check_tool lychee --format markdown --output .lychee-out.md --cache . || status=$?
   fi
@@ -75,6 +88,14 @@ command_check() {
   fi
 
   return "$status"
+}
+
+validate_release_version() {
+  if [[ -n "${RELEASE_VERSION:-}" ]] &&
+    ! [[ "${RELEASE_VERSION}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+    echo "RELEASE_VERSION must be a v-prefixed stable semantic version." >&2
+    return 2
+  fi
 }
 
 run_check_tool() {
@@ -141,14 +162,21 @@ check_changelog_up_to_date() {
 # Dispatched in main with arguments, without arguments in check_changelog_up_to_date
 # shellcheck disable=SC2120
 command_changelog() {
+  # Generate changelog only for commits from v0.1.0 onward (Conventional # Commits era)
   local changelog_range="v0.1.0..HEAD"
   local cmd command_str
 
+  validate_release_version || return $?
   require_tool git-cliff
 
-  # Generate changelog only for commits from v0.1.0 onward (Conventional # Commits era),
-  # avoid remote queries, and forward extra args (e.g. -v/-vv).
-  cmd=(git-cliff --offline --config cliff.toml "$@" -- "${changelog_range}")
+  if [[ -n "${RELEASE_VERSION:-}" ]] &&
+    ! git rev-parse --quiet --verify "refs/tags/${RELEASE_VERSION}" >/dev/null; then
+    # We prepare for a release where the tag doesn't exist yet
+    cmd=(git-cliff --offline --config cliff.toml "$@" --tag "${RELEASE_VERSION}" -- "${changelog_range}")
+  else
+    # Unreleased changes or a tagged release
+    cmd=(git-cliff --offline --config cliff.toml "$@" -- "${changelog_range}")
+  fi
   printf -v command_str '%q ' "${cmd[@]}"
   echo "Updating CHANGELOG.md: ${command_str% }"
   "${cmd[@]}"
@@ -277,6 +305,7 @@ run_in_container() {
   "${container_runtime}" run -it --rm \
     -v "$PWD":/code \
     -w /code \
+    -e "RELEASE_VERSION=${RELEASE_VERSION:-}" \
     --entrypoint /bin/bash \
     "$BATS_MOCK_DEV_CONTAINER" \
     ./build "$@"

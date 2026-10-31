@@ -1,0 +1,175 @@
+name: Stage Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: stage-release-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  create-tag:
+    name: Create release tag
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      release_version: ${{ steps.release.outputs.release_version }}
+      merge_sha: ${{ steps.release.outputs.merge_sha }}
+    steps:
+      - name: 🔍 Validate release PR
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if [[ ! "${RELEASE_BRANCH}" =~ ^release/(v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
+            echo "Release branch must be named release/vMAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+          release_version="${BASH_REMATCH[1]}"
+          if [[ ! "${MERGE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The merged pull request has no valid merge commit SHA." >&2
+            exit 1
+          fi
+
+          echo "release_version=${release_version}" >> "${GITHUB_OUTPUT}"
+          echo "merge_sha=${MERGE_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: 🔖 Create or verify release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.release.outputs.release_version }}
+          MERGE_SHA: ${{ steps.release.outputs.merge_sha }}
+        run: |
+          tag_ref="refs/tags/${RELEASE_VERSION}"
+          if existing_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_VERSION}" 2>/dev/null)"; then
+            existing_type="$(jq -r '.object.type' <<< "${existing_ref}")"
+            existing_sha="$(jq -r '.object.sha' <<< "${existing_ref}")"
+            if [[ "${existing_type}" != "commit" || "${existing_sha}" != "${MERGE_SHA}" ]]; then
+              echo "Tag ${RELEASE_VERSION} already exists at a different target." >&2
+              exit 1
+            fi
+            echo "Tag ${RELEASE_VERSION} already points to the merged commit."
+          else
+            # Creating the tag makes GitHub's source archives available to the create-draft job.
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f "ref=${tag_ref}" \
+              -f "sha=${MERGE_SHA}"
+          fi
+
+  verify-release:
+    name: Verify tagged release
+    needs: create-tag
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: 🛎️ Checkout merged release
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.create-tag.outputs.merge_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 🧮 Read image version
+        id: image-version
+        run: |
+          image_version="$(tr -d '[:space:]' < .devcontainer/image-version)"
+          if ! printf '%s\n' "${image_version}" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "Invalid semantic version in .devcontainer/image-version: ${image_version}" >&2
+            exit 1
+          fi
+          echo "image_ref=ghcr.io/${GITHUB_REPOSITORY,,}-dev:${image_version}" >> "${GITHUB_OUTPUT}"
+
+      - name: 🔐 Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📥 Pull development container image
+        run: docker pull "${STEPS_IMAGE_VERSION_OUTPUTS_IMAGE_REF}"
+        env:
+          STEPS_IMAGE_VERSION_OUTPUTS_IMAGE_REF: ${{ steps.image-version.outputs.image_ref }}
+
+      - name: 🔍 Run full checks after tag creation
+        run: |
+          docker run --rm \
+            -v "$PWD:/code" \
+            -w /code \
+            -e "RELEASE_VERSION=${STEPS_CREATE_TAG_OUTPUTS_RELEASE_VERSION}" \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/code \
+            --entrypoint /bin/bash \
+            "${STEPS_IMAGE_VERSION_OUTPUTS_IMAGE_REF}" \
+            ./build check
+        env:
+          STEPS_CREATE_TAG_OUTPUTS_RELEASE_VERSION: ${{ needs.create-tag.outputs.release_version }}
+          STEPS_IMAGE_VERSION_OUTPUTS_IMAGE_REF: ${{ steps.image-version.outputs.image_ref }}
+
+  create-draft:
+    name: Create draft and checksum
+    needs: [create-tag, verify-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: 🛎️ Checkout merged release notes
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.create-tag.outputs.merge_sha }}
+          persist-credentials: false
+
+      - name: 📥 Download archives and stage checksum
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.create-tag.outputs.release_version }}
+        run: |
+          asset_dir=".release-assets"
+          mkdir -p "${asset_dir}"
+          archive_url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${RELEASE_VERSION}"
+          curl --fail --location --retry 3 "${archive_url}.tar.gz" \
+            --output "${asset_dir}/bats-mock-${RELEASE_VERSION#v}.tar.gz"
+          curl --fail --location --retry 3 "${archive_url}.zip" \
+            --output "${asset_dir}/bats-mock-${RELEASE_VERSION#v}.zip"
+
+          checksum_file="bats-mock-${RELEASE_VERSION}.sha256"
+          (
+            cd "${asset_dir}"
+            sha256sum "bats-mock-${RELEASE_VERSION#v}.tar.gz" \
+              "bats-mock-${RELEASE_VERSION#v}.zip" > "${checksum_file}"
+            sha256sum --check "${checksum_file}"
+          )
+
+          if draft_state="$(gh release view "${RELEASE_VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [[ "${draft_state}" != "true" ]]; then
+              echo "Release ${RELEASE_VERSION} is already published; refusing to alter it." >&2
+              exit 1
+            fi
+          else
+            gh release create "${RELEASE_VERSION}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --draft \
+              --verify-tag \
+              --title "${RELEASE_VERSION}" \
+              --notes-file CHANGELOG.md
+          fi
+
+          gh release upload "${RELEASE_VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber \
+            "${asset_dir}/${checksum_file}"
