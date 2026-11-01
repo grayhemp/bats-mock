@@ -59,6 +59,7 @@ command_check() {
 
   if "${do_style_check}"; then
     run_check_tool shfmt --diff . || status=$?
+    run_check_tool codespell . || status=$?
     # For now don't fail the check if rumdl is not installed or the
     # documentation is not perfect.
     run_check_tool rumdl check . || true

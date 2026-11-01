@@ -102,7 +102,7 @@ bats_require_minimum_version 1.5.0
   [[ "${output}" =~ ${regexp} ]]
 }
 
-@test 'mock_create comand to existing program does not create the mock' {
+@test 'mock_create command to existing program does not create the mock' {
   LC_ALL=C run mock_create /bin/ls
   [[ "${status}" -eq 1 ]]
   [[ $(find "${BATS_TEST_TMPDIR}" -maxdepth 1 -name "bats-mock.*" 2>&1 | wc -l) -eq 0 ]]

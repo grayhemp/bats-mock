@@ -50,7 +50,7 @@ load mock_test_suite
 
 @test "path_rm removes directories of given command so that command is no longer found" {
   # Check precondition: date command is in /usr/bin and /bin
-  # /bin is a symblic link to /usr/bin on some systems.
+  # /bin is a symbolic link to /usr/bin on some systems.
   command -v date
 
   run path_rm date

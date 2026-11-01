@@ -206,10 +206,11 @@ Your development environment should provide the following tooling:
 
 - [Bats][bats-core] to be installed and in `PATH`.
   Optionally accepts the `BINDIR` env to provide the location of `bats`.
+- [codespell](https://github.com/codespell-project/codespell) to check spelling
+- [lychee](https://github.com/lycheeverse/lychee) to check links in documentation
+- [rumdl](https://github.com/rvben/rumdl) to format/check Markdown documentation
+- [ShellCheck][shellcheck] for static code analysis
 - [shfmt][shfmt] to format/check the style guide
-- [ShellCheck][shellcheck] for static code analyis
-- [rumdl](https://github.com/rvben/rumdl) to format/check Markdown documention
-- [lychee](https://github.com/lycheeverse/lychee) to check links in documention
 
 The recommended way to set up a consistent development environment is
 to use a container image.
@@ -246,14 +247,14 @@ using the `.devcontainer/Containerfile`.
 # Run all tests
 ./build test
 
-# Check style guide and static code analyis
+# Check style guide and static code analysis
 ./build check
 
 # Check only style guide
 ./build check --style-only
 
-# Check only static code analysi
-./build check --analyis-only
+# Check only static code analysis
+./build check --analysis-only
 ```
 
 You can also build the development image explicitly:
@@ -359,7 +360,7 @@ Use [shfmt][shfmt] and [ShellCheck][shellcheck]. The CI will enforce this.
 
 ### Commit messages
 
-Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) with the followig structure:
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) with the following structure:
 
 ```text
 <type>(optional scope): <description>

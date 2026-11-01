@@ -379,7 +379,7 @@ _remove_path() {
   local output_var_name="${3?'Output variable name must be specified'}"
   # Wrap the path with colons to simplify removal
   local updated_path=":${input_path}:"
-  # Remove traling slashes from the path entries
+  # Remove trailing slashes from the path entries
   updated_path=${updated_path//"/:"/":"}
   # In case PATH contained / as a standalone entry we have a double colon, reinsert it again
   updated_path=${updated_path//"::"/":/:"}

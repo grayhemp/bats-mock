@@ -1,0 +1,3 @@
+[codespell]
+ignore-words-list = chello
+skip = CHANGELOG.md

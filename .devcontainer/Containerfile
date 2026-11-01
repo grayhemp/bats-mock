@@ -18,7 +18,8 @@ LABEL org.opencontainers.image.url="https://ghcr.io/mh182/bats-mock-dev:${image_
 LABEL org.opencontainers.image.source="https://github.com/mh182/bats-mock"
 LABEL org.opencontainers.image.base.name="docker.io/bats/bats"
 
-RUN apk --no-cache add git shellcheck shfmt
+RUN apk --no-cache add git ripgrep shellcheck shfmt && \
+    apk --no-cache --repository="https://dl-cdn.alpinelinux.org/alpine/v$(cut -d. -f1,2 /etc/alpine-release)/community" add py3-codespell
 RUN wget -O- https://github.com/lycheeverse/lychee/releases/download/lychee-${lychee_ver}/lychee-${arch}.tar.gz | \
     tar xzf - -C /usr/local/bin --strip-components=1 lychee-${arch}/lychee && \
     wget -O- https://github.com/rvben/rumdl/releases/download/${rumdl_ver}/rumdl-${rumdl_ver}-${arch}.tar.gz | \
