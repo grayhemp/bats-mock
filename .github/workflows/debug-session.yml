@@ -10,8 +10,8 @@ on:
         default: ubuntu-24.04
         options:
           - ubuntu-24.04
-          - macos-14
           - macos-15
+          - macos-26
 
 jobs:
   # -------------------------------------------------------

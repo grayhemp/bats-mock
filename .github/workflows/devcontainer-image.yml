@@ -1,12 +1,7 @@
 name: Devcontainer Image
 
 "on":
-  pull_request:
-    branches: [main]
-    paths:
-      - .devcontainer/Containerfile
-      - .devcontainer/image-version
-      - .github/workflows/devcontainer-image.yml
+  workflow_call:
 
 permissions:
   contents: read
@@ -15,7 +10,6 @@ jobs:
   guard-version-sync:
     name: Guard - ensure version bump
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout repository
@@ -25,9 +19,10 @@ jobs:
           persist-credentials: false
 
       - name: Check if Containerfile and image-version are in sync
+        if: github.event_name == 'pull_request'
         run: |
           # Get list of changed files
-          changed_files="$(git diff --name-only origin/main...HEAD)"
+          changed_files="$(git diff --name-only "${PR_BASE_SHA}...HEAD")"
 
           containerfile_changed=false
           version_changed=false
@@ -53,6 +48,8 @@ jobs:
           echo "✅ Version sync check passed."
           echo "Containerfile changed: ${containerfile_changed}"
           echo "image-version changed: ${version_changed}"
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
   build-check-test-and-push:
     name: Build devcontainer and validate
@@ -102,8 +99,16 @@ jobs:
 
       - name: Run build check in container
         run: |
+          release_version=""
+          release_subject_pattern='^chore: Release (v[0-9]+\.[0-9]+\.[0-9]+)([[:space:]]|$)'
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${GITHUB_HEAD_REF:-}" == release/* ]]; then
+            release_version="${GITHUB_HEAD_REF#release/}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_EVENT_HEAD_COMMIT_MESSAGE:-}" =~ ${release_subject_pattern} ]]; then
+            release_version="${BASH_REMATCH[1]}"
+          fi
           docker run --rm \
             -v "$PWD:/code" \
+            -e "RELEASE_VERSION=${release_version}" \
             -e GIT_CONFIG_COUNT=1 \
             -e GIT_CONFIG_KEY_0=safe.directory \
             -e GIT_CONFIG_VALUE_0=/code \
@@ -113,6 +118,7 @@ jobs:
             ./build check
         env:
           STEPS_IMAGE_REF_OUTPUTS_IMAGE_REF: ${{ steps.image-ref.outputs.image_ref }}
+          GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Run build test in container
         run: |
@@ -121,12 +127,14 @@ jobs:
             -w /code \
             --entrypoint /bin/bash \
             "${STEPS_IMAGE_REF_OUTPUTS_IMAGE_REF}" \
-            ./build test
+            -lc 'bats --version && bats test --print-output-on-failure'
         env:
           STEPS_IMAGE_REF_OUTPUTS_IMAGE_REF: ${{ steps.image-ref.outputs.image_ref }}
 
       - name: Login to GHCR
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: >-
+          github.event_name == 'pull_request' && github.base_ref == 'main' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee   # v4.2.0
         with:
           registry: ghcr.io
@@ -134,12 +142,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push versioned image to GHCR
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: >-
+          github.event_name == 'pull_request' && github.base_ref == 'main' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         run: docker push "${STEPS_IMAGE_REF_OUTPUTS_IMAGE_REF}"
         env:
           STEPS_IMAGE_REF_OUTPUTS_IMAGE_REF: ${{ steps.image-ref.outputs.image_ref }}
 
       - name: Explain skipped push for fork PR
-        if: github.event.pull_request.head.repo.full_name != github.repository
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository
         run: |
           echo "Skipping GHCR push because this pull request comes from a fork."

@@ -7,6 +7,7 @@ All notable changes to [bats-mock](README.md) will be documented in this file.
 ### 💼 Other
 
 - Automate creation of draft releases after release merge [#57](https://github.com/mh182/bats-mock/issues/57)
+- Avoid devcontainer image races with conditional validation [#60](https://github.com/mh182/bats-mock/issues/60)
 
 ## [0.2.1] - 2026-10-25
 

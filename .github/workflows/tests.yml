@@ -5,23 +5,97 @@ on:
     branches: [main]
   pull_request:
     branches: [main, "feature/**", "release/**"]
-    paths-ignore:
-      - .devcontainer/Containerfile
-      - .devcontainer/image-version
-      - .github/workflows/devcontainer-image.yml
   workflow_dispatch:
+    inputs:
+      build_image:
+        description: Build and validate the development image instead of pulling it
+        type: boolean
+        default: false
+      debug_enabled:
+        description: Start a tmate session after the selected platform's tests
+        type: boolean
+        default: false
+      debug_os:
+        description: Platform for the tmate session
+        type: choice
+        default: ubuntu-24.04
+        options:
+          - ubuntu-24.04
+          - macos-15
+          - macos-26
 
 permissions:
   contents: read
   packages: read
 
 jobs:
+  changes:
+    name: Detect image changes
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      image_changed: ${{ steps.changes.outputs.image_changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd   # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select validation route
+        id: changes
+        run: |
+          image_changed=false
+          case "${GITHUB_EVENT_NAME}" in
+            pull_request)
+              changed_files="$(git diff --name-only "${PR_BASE_SHA}...HEAD")"
+              ;;
+            push)
+              if [[ "${PUSH_BEFORE_SHA}" =~ ^0+$ ]] || ! git cat-file -e "${PUSH_BEFORE_SHA}^{commit}" 2>/dev/null; then
+                echo "Push base is unavailable; validating a local image build."
+                image_changed=true
+                changed_files=""
+              else
+                changed_files="$(git diff --name-only "${PUSH_BEFORE_SHA}" HEAD)"
+              fi
+              ;;
+            workflow_dispatch)
+              image_changed="${BUILD_IMAGE}"
+              changed_files=""
+              ;;
+            *)
+              echo "Unsupported event: ${GITHUB_EVENT_NAME}" >&2
+              exit 1
+              ;;
+          esac
+          if printf '%s\n' "${changed_files}" | grep -Eq '^(\.devcontainer/(Containerfile|image-version)|\.github/workflows/devcontainer-image\.yml)$'; then
+            image_changed=true
+          fi
+          echo "image_changed=${image_changed}" >> "${GITHUB_OUTPUT}"
+          echo "Build development image: ${image_changed}"
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          BUILD_IMAGE: ${{ inputs.build_image }}
+
+  image:
+    name: Image Validation
+    needs: changes
+    if: needs.changes.outputs.image_changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/devcontainer-image.yml
+
   # -------------------------------------------------------
   # Formal checks (formatting + linting)
   # -------------------------------------------------------
   lint:
     name: Formal Checks (Linux)
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.image_changed == 'false'
     permissions:
       contents: read
       packages: read
@@ -85,6 +159,10 @@ jobs:
           GITHUB_EVENT_HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Comment broken links in documentation
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          hashFiles('.lychee-out.md') != ''
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0    # v3.0.4
         with:
           path: .lychee-out.md
@@ -107,12 +185,15 @@ jobs:
   test:
     name: Bats Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: lint
+    needs: [changes, lint, image]
+    if: >-
+      always() && !cancelled() && needs.changes.result == 'success' &&
+      ((needs.changes.outputs.image_changed == 'true' && needs.image.result == 'success' && needs.lint.result == 'skipped') ||
+       (needs.changes.outputs.image_changed == 'false' && needs.lint.result == 'success' && needs.image.result == 'skipped'))
     strategy:
       fail-fast: false
       matrix:
-        # Tests on ubuntu-22.04 fail since bats is too old
-        os: [ubuntu-24.04, macos-14, macos-15]
+        os: [ubuntu-24.04, macos-15, macos-26]
 
     steps:
       - name: 🛎️ Checkout repository
@@ -141,3 +222,35 @@ jobs:
           github.event.inputs.debug_enabled == 'true' &&
           matrix.os == github.event.inputs.debug_os
         uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113   # v3.24
+
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-24.04
+    needs: [changes, lint, image, test]
+    if: always()
+    permissions:
+      contents: read
+    steps:
+      - name: Verify selected validation and test matrix
+        run: |
+          echo "Changes: ${CHANGES_RESULT}; image: ${IMAGE_RESULT}; lint: ${LINT_RESULT}; matrix: ${TEST_RESULT}"
+          if [[ "${CHANGES_RESULT}" != success || "${TEST_RESULT}" != success ]]; then
+            exit 1
+          fi
+          case "${IMAGE_CHANGED}" in
+            true)
+              [[ "${IMAGE_RESULT}" == success && "${LINT_RESULT}" == skipped ]]
+              ;;
+            false)
+              [[ "${LINT_RESULT}" == success && "${IMAGE_RESULT}" == skipped ]]
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          IMAGE_CHANGED: ${{ needs.changes.outputs.image_changed }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}

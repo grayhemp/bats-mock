@@ -503,24 +503,41 @@ The devcontainer image is versioned with Semantic Versioning in
 The CI workflow builds and publishes the image tag as
 `ghcr.io/mh182/bats-mock-dev:<version>`.
 
+The `Tests` workflow selects validation based on the changed files.
+Changes to `.devcontainer/Containerfile`, `.devcontainer/image-version`,
+or `.github/workflows/devcontainer-image.yml` build the image once
+through the reusable `Devcontainer Image` workflow.
+Other changes use the published image without building it.
+Both routes run container checks and tests, followed by the Linux/macOS matrix.
+For manual runs, enable `build_image` to select a local build;
+the default is to use the published image.
+
 Follow these steps to create a new devcontainer image release:
 
 1. Update `.devcontainer/Containerfile` with your image changes.
 2. Bump `.devcontainer/image-version` to the next semantic version.
 3. Open a pull request to `main`.
-   Keep this PR limited to files used by the `Devcontainer Image` workflow:
-   `.devcontainer/Containerfile`, `.devcontainer/image-version`,
-   and `.github/workflows/devcontainer-image.yml`.
-   Do not include unrelated source or test changes in the same PR.
-   Otherwise `.github/workflows/tests.yml` runs in parallel
-   and may fail because the new container image version is not available yet.
-4. Wait for the `Devcontainer Image` workflow to pass:
+   Image changes and source, test, or documentation changes
+   can be included in the same PR.
+   Validation uses the locally built image without waiting for publication.
+4. Approve the `container-publish` environment deployment when prompted
+   (if required reviewers are configured).
+5. Wait for the `Tests` workflow to pass:
    - The guard job fails the PR if `Containerfile` changed
      without a corresponding version bump.
-   - The build job runs `./build check` and `./build test`
+   - The build job runs `./build check` and Bats tests
      inside the new image.
-5. Approve the `container-publish` environment deployment when prompted
-   (if required reviewers are configured).
+   - PRs to `main` from the same repository publish the validated image.
+     Fork PRs validate the image but cannot publish it to GHCR.
+   - The Linux/macOS matrix runs after container validation succeeds.
+   - `CI Status` verifies that the selected validation route
+     and the complete test matrix succeeded.
+
+Use `CI Status` as the required branch-protection check,
+rather than requiring either mutually exclusive validation job.
+For fork image changes, a maintainer must arrange publication
+through a same-repository PR before subsequent ordinary runs
+can pull the new version.
 
 <!-- omit in toc -->
 
